@@ -2,6 +2,8 @@ import subprocess
 import sys
 import time
 import os
+import json
+import csv
 from datetime import datetime
 import webbrowser
 from urllib.parse import urlparse
@@ -14,8 +16,9 @@ RED = "\033[91m"
 GREEN = "\033[92m"
 YELLOW = "\033[93m"
 BLUE = "\033[94m"
+MAGENTA = "\033[95m"
 CYAN = "\033[96m"
-RESET = "\033[0m"  
+RESET = "\033[0m"
 
 class Color:
     RED = '\033[91m'
@@ -40,6 +43,79 @@ HTML_LOG_FILE = os.path.join(LOG_DIR, "scanner_file.html")
 os.makedirs(LOG_DIR, exist_ok=True)
 os.makedirs(AI_LOG_DIR, exist_ok=True)
 os.makedirs(CSV_REPORTS_DIR, exist_ok=True)
+
+# Wordlist paths searched in order — first match wins
+WORDLIST_PATHS = {
+    "common": [
+        "/usr/share/wordlists/dirb/common.txt",
+        "/usr/share/seclists/Discovery/Web-Content/common.txt",
+        "/usr/share/SecLists/Discovery/Web-Content/common.txt",
+        os.path.expanduser("~/tools/SecLists/Discovery/Web-Content/common.txt"),
+        os.path.expanduser("~/SecLists/Discovery/Web-Content/common.txt"),
+        "/opt/homebrew/share/seclists/Discovery/Web-Content/common.txt",
+    ],
+    "big": [
+        "/usr/share/seclists/Discovery/Web-Content/big.txt",
+        "/usr/share/SecLists/Discovery/Web-Content/big.txt",
+        "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt",
+        os.path.expanduser("~/tools/SecLists/Discovery/Web-Content/big.txt"),
+        os.path.expanduser("~/SecLists/Discovery/Web-Content/big.txt"),
+    ],
+    "subdomains": [
+        "/usr/share/seclists/Discovery/DNS/subdomains-top1million-5000.txt",
+        "/usr/share/SecLists/Discovery/DNS/subdomains-top1million-5000.txt",
+        os.path.expanduser("~/tools/SecLists/Discovery/DNS/subdomains-top1million-5000.txt"),
+        os.path.expanduser("~/SecLists/Discovery/DNS/subdomains-top1million-5000.txt"),
+    ],
+    "lfi": [
+        "/usr/share/seclists/Fuzzing/LFI/LFI-Jhaddix.txt",
+        "/usr/share/SecLists/Fuzzing/LFI/LFI-Jhaddix.txt",
+        os.path.expanduser("~/tools/SecLists/Fuzzing/LFI/LFI-Jhaddix.txt"),
+        os.path.expanduser("~/SecLists/Fuzzing/LFI/LFI-Jhaddix.txt"),
+    ],
+    "params": [
+        "/usr/share/seclists/Discovery/Web-Content/burp-parameter-names.txt",
+        "/usr/share/SecLists/Discovery/Web-Content/burp-parameter-names.txt",
+        os.path.expanduser("~/tools/SecLists/Discovery/Web-Content/burp-parameter-names.txt"),
+        os.path.expanduser("~/SecLists/Discovery/Web-Content/burp-parameter-names.txt"),
+    ],
+}
+
+def find_wordlist(category):
+    for path in WORDLIST_PATHS.get(category, []):
+        if os.path.exists(path):
+            return path
+    return None
+
+def check_tool(name):
+    try:
+        subprocess.run([name, "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return True
+    except FileNotFoundError:
+        return False
+
+def _parse_live_urls(live_file):
+    """Parse URLs from httpx output (handles JSON-per-line and plain URL formats)."""
+    urls = []
+    try:
+        with open(live_file) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                if line.startswith("{"):
+                    try:
+                        data = json.loads(line)
+                        url = data.get("url") or data.get("input")
+                        if url:
+                            urls.append(url)
+                    except Exception:
+                        pass
+                elif line.startswith("http"):
+                    urls.append(line.split()[0])
+    except Exception:
+        pass
+    return list(dict.fromkeys(urls))  # deduplicate preserving order
 
 def display_banner():
     banner = rf"""
@@ -172,31 +248,6 @@ def run_nuclei_scan(target_url):
     except Exception as e:
         print(f"{RED}Error running Nuclei scan: {str(e)}{RESET}")
 
-def web_scanner():
-    while True:
-        print(f"\n{YELLOW}Web Scanner Options:{RESET}")
-        print(f"{BLUE}1){RESET} {GREEN}Run FFUF Directory Scan{RESET}")
-        print(f"{BLUE}2){RESET} {GREEN}Run Nuclei Vulnerability Scan{RESET}")
-        print(f"{BLUE}3){RESET} {GREEN}Back to Main Menu{RESET}")
-        
-        try:
-            choice = int(input(f"\n{CYAN}Enter your choice (1-3): {RESET}"))
-            if choice == 1:
-                url = input(f"{YELLOW}Enter target URL: {RESET}")
-                run_ffuf_scan(url)
-            elif choice == 2:
-                url = input(f"{YELLOW}Enter target URL: {RESET}")
-                run_nuclei_scan(url)
-            elif choice == 3:
-                break
-            else:
-                print(f"{RED}Invalid choice. Please select between 1-3.{RESET}")
-        except ValueError:
-            print(f"{RED}Invalid input. Please enter a numeric value.{RESET}")
-
-# ... keep the rest of the main() function and other code unchanged
-
-# Add this function to scanner.py
 def run_backend():
     print(f"{GREEN}Running backend MongoDB upload...{RESET}")
     try:
@@ -249,7 +300,7 @@ def generate_csv_reports():
 
 
 def ai_log_result(scan_type, result):
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with open(AI_LOG_FILE, "a") as log:  # Fixed variable name
         log.write(f"[{timestamp}] {scan_type} Results:\n{result}\n\n")
     
@@ -532,23 +583,30 @@ def run_patching_system():
     except Exception as e:
         print(f"{RED}Error during patching: {str(e)}{RESET}")
 
+
 def web_scanner():
     while True:
         print(f"\n{YELLOW}Web Scanner Options:{RESET}")
-        print(f"{BLUE}1){RESET} {GREEN}Run ffuf : fast web fuzzer{RESET}")
-        print(f"{BLUE}2){RESET} {GREEN}Back to Main Menu{RESET}")
-        
+        print(f"{BLUE}(1){RESET} {GREEN}Run ffuf : fast web fuzzer{RESET}")
+        print(f"{BLUE}(2){RESET} {GREEN}Run Nuclei Vulnerability Scan{RESET}")
+        print(f"{BLUE}(3){RESET} {GREEN}Back to Main Menu{RESET}")
+        print(f"{CYAN}Note: reconnaissance now lives in the dedicated tool -> python3 recon.py{RESET}")
+
         try:
-            choice = int(input(f"\n{CYAN}Enter your choice (1-2): {RESET}"))
+            choice = int(input(f"\n{CYAN}Enter your choice (1-3): {RESET}"))
             if choice == 1:
                 url = input(f"{YELLOW}Enter target URL: {RESET}")
                 run_ffuf_scan(url)
             elif choice == 2:
+                url = input(f"{YELLOW}Enter target URL: {RESET}")
+                run_nuclei_scan(url)
+            elif choice == 3:
                 break
             else:
-                print(f"{RED}Invalid choice. Please select between 1-2.{RESET}")
+                print(f"{RED}Invalid choice. Please select between 1-3.{RESET}")
         except ValueError:
             print(f"{RED}Invalid input. Please enter a numeric value.{RESET}")
+
 
 def main():
     display_banner()

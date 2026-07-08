@@ -9,6 +9,19 @@
 ## Overview
 This is an advanced security scanning and vulnerability patching recommendation tool designed to help users detect vulnerabilities in their infrastructure and web applications. It integrates multiple scanning tools like **Nmap, Lynis, Naabu, Gobuster, and Bandit**, along with an AI-based recommendation engine to provide intelligent patching suggestions.
 
+> **🛰️ ScamRecon** — the dedicated reconnaissance framework (32-tool chain,
+> passive + active asset discovery for a domain and all its subdomains, validated
+> HTML/PDF/JSON reports, cross-platform for Kali/Parrot/macOS) lives in
+> [`recon.py`](recon.py) and is documented in **[RECON.md](RECON.md)**.
+> Quick start: `python3 recon.py --install` then `python3 recon.py -d example.com`.
+>
+> **🛡️ ScamVapt** — a confirmation-first VAPT framework (37-tool chain) that
+> consumes recon output and confirms **only tool-proven** critical/high vulns
+> (SQLi, XSS, LFI, SSTI, RCE, SSRF, redirect, CRLF) with **zero false positives**,
+> each finding carrying reproduction steps + PoC in a polished SVG/PDF report.
+> Lives in [`vapt.py`](vapt.py), documented in **[VAPT.md](VAPT.md)**.
+> Quick start: `python3 vapt.py --install` then `python3 vapt.py --from-recon recon_output`.
+
 <p align="center">
   <img src="https://github.com/user-attachments/assets/dd4bc53a-3c42-4737-a939-bca59c1c7a5e" alt="Screenshot from 2025-03-21 00-36-00">
 </p>

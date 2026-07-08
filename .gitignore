@@ -3,3 +3,16 @@ aiReport/
 lynis_logs/
 reports/
 scamdroid_venv/
+
+# ScamRecon
+recon_output/
+wordlists/
+tools/
+__pycache__/
+*.pyc
+scamrecon/__pycache__/
+
+# ScamVapt
+vapt_output/
+payloads/
+scamvapt/__pycache__/
